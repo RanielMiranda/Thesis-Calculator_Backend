@@ -24,19 +24,32 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:4000",
-        "https://thesis-calculator-frontend-39m1yjfv8-raniels-projects-2ea24826.vercel.app/solver",
+        "https://thesis-calculator-frontend.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Cache-Control", "Content-Type"],    
 )
 
+# -------------------------------------------------------------------
+# Render Health Endpoints
+# -------------------------------------------------------------------
+@app.get("/ping")
+async def ping():
+    logger.info("🔔 Uptime ping received")
+    return {"status": "ok", "message": "Backend is alive"}
 
+@app.get("/uptime")
+async def uptime():
+    logger.info("🟢 UptimeRobot pinged this server.")
+    return {"status": "alive"}
 
 # -------------------------------------------------------------------
 # Expression Validator (NO SYMPY)
@@ -194,7 +207,12 @@ async def solve_derivative_stream(expression: str, variable: str = 'x'):
     logger.debug(f"Solve request: {expression}")
     return StreamingResponse(
         benchmark_generator(expression, variable),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "https://thesis-calculator-frontend-39m1yjfv8-raniels-projects-2ea24826.vercel.app",
+        }
     )
 
 
