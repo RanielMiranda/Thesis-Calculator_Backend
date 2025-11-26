@@ -29,7 +29,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:4000",
-        "https://thesis-calculator-frontend.vercel.app"
+        "https://thesis-calculator-frontend-39m1yjfv8-raniels-projects-2ea24826.vercel.app/solver",
     ],
     allow_credentials=True,
     allow_methods=["*"],
