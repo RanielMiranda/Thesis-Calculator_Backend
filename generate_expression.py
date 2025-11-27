@@ -1,42 +1,71 @@
 import random
-from sympy import symbols, S, sin, cos, tan, Add, Mul, Pow, sec, csc, cot
+from sympy import symbols, S, sin, cos, tan, Add, Mul, Pow, sec, csc, cot, latex
 
 def generate_random_expression(variables, num_terms=3, max_depth=2):
-    # Define available functions and operators
-    operators = [Add, Mul, Pow]
-    functions = [sin, cos, tan, sec, csc, cot]
-    
-    def create_leaf():
-        if random.random() < 0.7:  
-            # 70% chance of being a variable
-            return random.choice(variables)
-        else: 
-            # 30% chance of being a constant
-            return S(random.randint(1, 10))
 
-    # Recursive function to build the tree
+    # Ensure all variables are SymPy symbols
+    variables = [symbols(v) if isinstance(v, str) else v for v in variables]
+
+    operators = ["add", "mul", "pow"]
+    functions = [sin, cos, tan, sec, csc, cot]
+
+    def create_leaf():
+        if random.random() < 0.7:
+            return random.choice(variables)  # variable
+        else:
+            return S(random.randint(1, 10))  # constant
+
+    # 🌟 MODIFICATION 1: Safe exponent only returns constants (integers 1 to 5).
+    # This prevents 'x^y' or 'x^(sin(x))' cases.
+    def safe_exponent():
+        return S(random.randint(1, 5))
+
+    # Helper to check if an expression is a variable (SymPy symbol)
+    def is_variable_expr(expr):
+        return any(v in expr.free_symbols for v in variables)
+
     def create_node(current_depth):
-        # Base case: create a leaf
         if current_depth >= max_depth or random.random() < 0.4:
             return create_leaf()
-        
-        # Recursive case: create a function or operator node
-        choice = random.choice(operators + functions)
-        
-        if choice in functions:
-            # Function nodes have a single child
-            return choice(create_node(current_depth + 1))
-        else:
-            # Operator nodes have two children (for simplicity)
-            return choice(create_node(current_depth + 1), create_node(current_depth + 1))
-    
-    # Combine terms with addition to form the final expression
-    terms = [create_node(0) for _ in range(num_terms)]
 
-    return Add(*terms)
+        choice = random.choice(operators + ["func"])
+
+        # function node
+        if choice == "func":
+            func = random.choice(functions)
+            return func(create_node(current_depth + 1))
+
+        # operator node
+        left = create_node(current_depth + 1)
+        right = create_node(current_depth + 1)
+
+        if choice == "add":
+            return left + right
+
+        elif choice == "mul":
+            return left * right
+
+        elif choice == "pow":
+            base = left
+            
+            if is_variable_expr(base):
+                exponent = safe_exponent() 
+            else:
+                exponent = safe_exponent()
+
+            return Pow(base, exponent) 
+
+    terms = [create_node(0) for _ in range(num_terms)]
+    expr = Add(*terms)
+    
+    # Return the SymPy expression, its string representation, and its LaTeX representation
+    return expr, str(expr), latex(expr)
+
 
 if __name__ == '__main__':
-    # Example usage
     x, y = symbols('x y')
-    expr = generate_random_expression([x, y], num_terms=2, max_depth=3)
+    # Update unpacking here too for testing
+    expr, expr_str, expr_latex = generate_random_expression([x, y], num_terms=2, max_depth=3)
     print(f"Generated Expression: {expr}")
+    print(f"Generated Expression String: {expr_str}")
+    print(f"Generated Expression LaTeX: {expr_latex}")

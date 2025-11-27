@@ -29,11 +29,23 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:4000",
+        "https://*.vercel.app",
+        "https://thesis-calculator-frontend.vercel.app"        
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# -------------------------------------------------------------------
+# Symbol Normalization (π → 3.14, √ → sqrt)
+# -------------------------------------------------------------------
+def normalize_expression(expr: str):
+    if not expr:
+        return expr
+    expr = expr.replace("π", "3.14")
+    expr = expr.replace("√", "sqrt")
+    return expr
 
 # -------------------------------------------------------------------
 # Render Health Endpoints
@@ -56,59 +68,40 @@ ALLOWED_VARIABLES = {"x", "y", "z"}
 ALLOWED_FUNCTIONS = {"sin", "cos", "tan", "sec", "csc", "cot", "sqrt", "exp"}
 
 def is_valid_token(token: str):
-    # 1. Variables (x, y, z)
     if token in ALLOWED_VARIABLES:
         return True
-
-    # 2. Numbers (integer or float)
     if re.fullmatch(r"\d+(\.\d+)?", token):
         return True
-
-    # 3. Allowed math functions
     if token in ALLOWED_FUNCTIONS:
         return True
-
-    # Otherwise → invalid nonsense token
     return False
-
 
 def validate_expression(expr: str):
     if not expr or not expr.strip():
         return False, "Expression cannot be empty."
 
-    # Remove spaces
     expr = expr.replace(" ", "")
 
-    # Tokenize by letters and non-letters
     tokens = re.findall(r"[a-zA-Z]+|\d+\.\d+|\d+|[\+\-\*/\^\(\)]", expr)
 
     for token in tokens:
 
-        # If token is alphabetic, check if it's valid
         if token.isalpha():
-
-            # If too long AND not a function, reject
             if len(token) > 1 and token not in ALLOWED_FUNCTIONS:
                 return False, f"Invalid token '{token}'. Unknown function or variable."
-
-            # If single-letter but not allowed (like 'a' 'b' 'q')
             if len(token) == 1 and token not in ALLOWED_VARIABLES:
                 return False, f"Invalid variable '{token}'. Only x, y, z allowed."
 
-            # If starts like s, c, t — check full function validity
             prefixes = ("s", "c", "t", "e")
             if token[0] in prefixes and token not in ALLOWED_FUNCTIONS and token not in ALLOWED_VARIABLES:
                 return False, f"Unknown function '{token}'."
 
-        # If token has digits and letters mixed → invalid like x2x or asd123
         if re.search(r"[A-Za-z].*\d|\d.*[A-Za-z]", token):
             return False, f"Invalid token '{token}'. Variables must be letters only."
 
-        # Check normal tokens
         if not is_valid_token(token) and not re.fullmatch(r"[\+\-\*/\^\(\)]", token):
             return False, f"Invalid token '{token}'."
 
-    # Final parentheses balance check
     stack = 0
     for ch in expr:
         if ch == '(':
@@ -135,13 +128,13 @@ class GenerationInput(BaseModel):
     max_depth: Optional[int] = 2
     variables: Optional[List[str]] = ['x']
 
-
 # -------------------------------------------------------------------
 # Streaming Benchmark Engine
 # -------------------------------------------------------------------
 async def benchmark_generator(expression: str, variable: str):
 
-    # Step 1 — Immediate Basic Validation
+    expression = normalize_expression(expression)
+
     is_valid, error_msg = validate_expression(expression)
     if not is_valid:
         error_response = {
@@ -177,7 +170,6 @@ async def benchmark_generator(expression: str, variable: str):
 
             for run_index in range(total_runs):
 
-                # Try to compute the derivative
                 try:
                     result_data = compute_func(expression, variable)
 
@@ -197,7 +189,6 @@ async def benchmark_generator(expression: str, variable: str):
                     yield f"data: {json.dumps(err)}\n\n"
                     return
 
-                # After warmup → record metrics
                 if run_index >= warmup_runs:
                     times.append(result_data['execution_time_ms'])
                     memories.append(result_data['peak_memory_bytes'])
@@ -206,7 +197,6 @@ async def benchmark_generator(expression: str, variable: str):
                         derivative_latex = result_data.get("derivative_latex", "")
                         steps = result_data.get("steps", [])
 
-            # Compute averages
             avg_time = sum(times) / measured_runs
             avg_mem = sum(memories) / measured_runs
 
@@ -217,7 +207,6 @@ async def benchmark_generator(expression: str, variable: str):
                 'avgMemory': avg_mem,
             }
 
-        # Final message to frontend
         final_msg = {
             'type': 'complete',
             'results': final_results
@@ -232,13 +221,15 @@ async def benchmark_generator(expression: str, variable: str):
         }
         yield f"data: {json.dumps(err)}\n\n"
 
-
 # -------------------------------------------------------------------
 # API Endpoints
 # -------------------------------------------------------------------
 @app.get("/solve_stream")
 async def solve_derivative_stream(expression: str, variable: str = 'x'):
-    logger.debug(f"Solve request: {expression}")
+
+    expression = normalize_expression(expression)
+
+    logger.debug(f"Solve request (normalized): {expression}")
     return StreamingResponse(
         benchmark_generator(expression, variable),
         media_type="text/event-stream",
@@ -249,24 +240,18 @@ async def solve_derivative_stream(expression: str, variable: str = 'x'):
         }
     )
 
-
 @app.post("/generate")
 async def generate_expression_endpoint(input_data: GenerationInput):
-    """
-    NOTE: No SymPy used — your `generate_random_expression()` must return:
-    - Python string expression
-    - Or provide your own LaTeX generator (if needed)
-    """
     try:
-        expr, expr_latex = generate_random_expression(
+        expr_sym, expr_str, expr_latex = generate_random_expression(
             variables=input_data.variables,
             num_terms=input_data.num_terms,
             max_depth=input_data.max_depth
         )
 
         return {
-            "expression_string": expr,
-            "expression_latex": expr_latex
+            "expression_string": expr_str,
+            "expression_latex": expr_str 
         }
 
     except Exception as e:
