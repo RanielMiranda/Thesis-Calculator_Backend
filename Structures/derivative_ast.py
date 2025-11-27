@@ -27,7 +27,7 @@ TOKEN_RPAREN = 'RPAREN'
 TOKEN_EOF = 'EOF'
 
 # A set of known mathematical functions.
-SUPPORTED_FUNCTIONS = {"sin", "cos", "tan", "sec", "csc", "cot", "exp", "log", "sqrt"}
+SUPPORTED_FUNCTIONS = {"sin", "cos", "tan", "sec", "csc", "cot", "exp", "sqrt"}
 
 class Token:
     def __init__(self, type, value):
@@ -41,7 +41,7 @@ class Tokenizer:
     # Function regex changed to use word boundaries so 'sine' doesn't match 'sin' + 'e'
     TOKEN_SPECS = [
         (r'\d+\.?\d*|\.\d+', TOKEN_NUMBER),
-        (r'\b(?:sin|cos|tan|sec|csc|cot|exp|log|sqrt)\b', TOKEN_FUNCTION),
+        (r'\b(?:sin|cos|tan|sec|csc|cot|exp|sqrt)\b', TOKEN_FUNCTION),
         (r'[a-zA-Z_][a-zA-Z0-9_]*', TOKEN_SYMBOL),
         (r'[\+\-\*\/^]', TOKEN_OPERATOR),
         (r'\(', TOKEN_LPAREN),
@@ -436,8 +436,6 @@ class Differentiator:
                 return self._apply_chain_rule(node, op, lambda u, du: ASTNode('*', [ASTNode('*', [ASTNode(-1.0), ASTNode('^', [ASTNode('csc', [u]), ASTNode(2.0)])]), du]))
             if op == 'exp':
                 return self._apply_chain_rule(node, op, lambda u, du: ASTNode('*', [ASTNode('exp', [u]), du]))
-            if op == 'log':
-                return self._apply_chain_rule(node, op, lambda u, du: ASTNode('*', [ASTNode('/', [ASTNode(1.0), u]), du]))
             if op == 'sqrt':
                 return self._apply_chain_rule(node, op, lambda u, du: ASTNode('*', [ASTNode('/', [ASTNode(1.0), ASTNode('*', [ASTNode(2.0), node])]), du]))
 

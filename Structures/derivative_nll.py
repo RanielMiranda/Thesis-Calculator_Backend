@@ -22,7 +22,7 @@ TOKEN_LPAREN = 'LPAREN'
 TOKEN_RPAREN = 'RPAREN'
 TOKEN_EOF = 'EOF'
 
-SUPPORTED_FUNCTIONS = {"sin", "cos", "tan", "sec", "csc", "cot", "exp", "log", "sqrt"}
+SUPPORTED_FUNCTIONS = {"sin", "cos", "tan", "sec", "csc", "cot", "exp", "sqrt"}
 
 class Token:
     def __init__(self, type, value):
@@ -35,7 +35,7 @@ class Token:
 class Tokenizer:
     TOKEN_SPECS = [
         (r'\d+\.?\d*|\.\d+', TOKEN_NUMBER),
-        (r'(?:sin|cos|tan|sec|csc|cot|exp|log|sqrt)(?=\s*\()', TOKEN_FUNCTION),
+        (r'(?:sin|cos|tan|sec|csc|cot|exp|sqrt)(?=\s*\()', TOKEN_FUNCTION),
         (r'[a-zA-Z_][a-zA-Z0-9_]*', TOKEN_SYMBOL),
         (r'[\+\-\*\/^]', TOKEN_OPERATOR),
         (r'\(', TOKEN_LPAREN),
@@ -346,7 +346,6 @@ class Differentiator:
             if op == 'csc': return self._apply_chain_rule(nll, op, lambda u, du: ['*', ['*', -1.0, ['csc', u]], ['*', ['cot', u], du]])
             if op == 'cot': return self._apply_chain_rule(nll, op, lambda u, du: ['*', ['*', -1.0, ['^', ['csc', u], 2.0]], du])
             if op == 'exp': return self._apply_chain_rule(nll, op, lambda u, du: ['*', ['exp', u], du])
-            if op == 'log': return self._apply_chain_rule(nll, op, lambda u, du: ['*', ['/', 1.0, u], du])
             if op == 'sqrt': return self._apply_chain_rule(nll, op, lambda u, du: ['*', ['/', 1.0, ['*', 2.0, nll]], du])
         
         raise ValueError(f"Differentiation rule for '{op}' not implemented")

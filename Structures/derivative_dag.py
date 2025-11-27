@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 # A set of known mathematical functions (used as node values for unary operations).
-SUPPORTED_FUNCTIONS = {"sin", "cos", "tan", "sec", "csc", "cot", "exp", "log", "sqrt"}
+SUPPORTED_FUNCTIONS = {"sin", "cos", "tan", "sec", "csc", "cot", "exp", "sqrt"}
 
 # --- Directed Acyclic Graph (DAG) Node ---
 class DAGNode:
@@ -54,7 +54,7 @@ class Token:
 class Tokenizer:
     # Use word boundaries for functions to avoid partial matches (e.g., "sine")
     TOKEN_SPECS = [
-        (r'(?:sin|cos|tan|sec|csc|cot|exp|log|sqrt)(?=\s*\()', TOKEN_FUNCTION),
+        (r'(?:sin|cos|tan|sec|csc|cot|exp|sqrt)(?=\s*\()', TOKEN_FUNCTION),
         (r'\d+\.?\d*|\.\d+', TOKEN_NUMBER),
         (r'[a-zA-Z_][a-zA-Z0-9_]*', TOKEN_SYMBOL),
         (r'[\+\-\*\/^]', TOKEN_OPERATOR),
@@ -525,9 +525,6 @@ class Differentiator:
             elif op == 'exp':
                 inner = self._create_node('exp', (u,))
                 result_node = apply_chain_rule("exp", inner)
-            elif op == 'log':
-                inner = self._create_node('/', (self.one, u))
-                result_node = apply_chain_rule("log", inner)
             elif op == 'sqrt':
                 two_sqrt_u = self._create_node('*', (self._create_node(2.0), self._create_node('sqrt', (u,))))
                 inner = self._create_node('/', (self.one, two_sqrt_u))

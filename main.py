@@ -1,6 +1,7 @@
 import logging
 import json
 import asyncio
+import re
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -15,7 +16,6 @@ from Structures.derivative_nll import compute_derivative_nll
 # Your random expression generator
 from generate_expression import generate_random_expression
 
-
 # -------------------------------------------------------------------
 # Setup
 # -------------------------------------------------------------------
@@ -24,18 +24,15 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:4000",
-        "https://thesis-calculator-frontend.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["Cache-Control", "Content-Type"],    
 )
 
 # -------------------------------------------------------------------
@@ -54,26 +51,64 @@ async def uptime():
 # -------------------------------------------------------------------
 # Expression Validator (NO SYMPY)
 # -------------------------------------------------------------------
-def is_valid_expression(expr: str):
+
+ALLOWED_VARIABLES = {"x", "y", "z"}
+ALLOWED_FUNCTIONS = {"sin", "cos", "tan", "sec", "csc", "cot", "sqrt", "exp"}
+
+def is_valid_token(token: str):
+    # 1. Variables (x, y, z)
+    if token in ALLOWED_VARIABLES:
+        return True
+
+    # 2. Numbers (integer or float)
+    if re.fullmatch(r"\d+(\.\d+)?", token):
+        return True
+
+    # 3. Allowed math functions
+    if token in ALLOWED_FUNCTIONS:
+        return True
+
+    # Otherwise → invalid nonsense token
+    return False
+
+
+def validate_expression(expr: str):
     if not expr or not expr.strip():
         return False, "Expression cannot be empty."
 
-    invalid_sequences = ["++", "--", "**", "//", "^^", "+-", "-+", "()", "( )"]
-    for seq in invalid_sequences:
-        if seq in expr:
-            return False, f"Invalid syntax sequence detected: '{seq}'."
-        
-    unsupported_functions = [
-        "sinh", "cosh", "tanh", "coth", "sech", "csch",
-        "arcsinh", "arccosh", "arctanh",
-        "arcsin", "arccos", "arctan", "arcsec", "arccsc", "arccot",
-        "log", "ln", "integrate", "diff" 
-    ]
+    # Remove spaces
+    expr = expr.replace(" ", "")
 
-    for func in unsupported_functions:
-        if func in expr:
-            return False, f"Topic is outside of scope: {func}"
-    
+    # Tokenize by letters and non-letters
+    tokens = re.findall(r"[a-zA-Z]+|\d+\.\d+|\d+|[\+\-\*/\^\(\)]", expr)
+
+    for token in tokens:
+
+        # If token is alphabetic, check if it's valid
+        if token.isalpha():
+
+            # If too long AND not a function, reject
+            if len(token) > 1 and token not in ALLOWED_FUNCTIONS:
+                return False, f"Invalid token '{token}'. Unknown function or variable."
+
+            # If single-letter but not allowed (like 'a' 'b' 'q')
+            if len(token) == 1 and token not in ALLOWED_VARIABLES:
+                return False, f"Invalid variable '{token}'. Only x, y, z allowed."
+
+            # If starts like s, c, t — check full function validity
+            prefixes = ("s", "c", "t", "e")
+            if token[0] in prefixes and token not in ALLOWED_FUNCTIONS and token not in ALLOWED_VARIABLES:
+                return False, f"Unknown function '{token}'."
+
+        # If token has digits and letters mixed → invalid like x2x or asd123
+        if re.search(r"[A-Za-z].*\d|\d.*[A-Za-z]", token):
+            return False, f"Invalid token '{token}'. Variables must be letters only."
+
+        # Check normal tokens
+        if not is_valid_token(token) and not re.fullmatch(r"[\+\-\*/\^\(\)]", token):
+            return False, f"Invalid token '{token}'."
+
+    # Final parentheses balance check
     stack = 0
     for ch in expr:
         if ch == '(':
@@ -81,10 +116,9 @@ def is_valid_expression(expr: str):
         elif ch == ')':
             stack -= 1
         if stack < 0:
-            return False, "Unexpected closing parenthesis )"
-
+            return False, "Unexpected closing parenthesis."
     if stack != 0:
-        return False, "Unbalanced parentheses in the expression."
+        return False, "Unbalanced parentheses."
 
     return True, None
 
