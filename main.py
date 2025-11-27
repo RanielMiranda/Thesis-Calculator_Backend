@@ -142,7 +142,7 @@ class GenerationInput(BaseModel):
 async def benchmark_generator(expression: str, variable: str):
 
     # Step 1 — Immediate Basic Validation
-    is_valid, error_msg = is_valid_expression(expression)
+    is_valid, error_msg = validate_expression(expression)
     if not is_valid:
         error_response = {
             'type': 'error',
