@@ -101,13 +101,22 @@ class Parser:
             node = [op, node, right]
         return node
 
-    def _term(self):  # Handles Multiplication (*) and Division (/)
+    def _term(self):  # Handles Multiplication (*) and Division (/), including implicit multiplication
         node = self._factor()
-        while self.current_token.type == TOKEN_OPERATOR and self.current_token.value in ('*', '/'):
-            op = self.current_token.value
-            self._eat(TOKEN_OPERATOR)
-            right = self._factor()
-            node = [op, node, right]
+        while True:
+            if self.current_token.type == TOKEN_OPERATOR and self.current_token.value in ('*', '/'):
+                op = self.current_token.value
+                self._eat(TOKEN_OPERATOR)
+                right = self._factor()
+                node = [op, node, right]
+                continue
+
+            if self.current_token.type in (TOKEN_NUMBER, TOKEN_SYMBOL, TOKEN_FUNCTION, TOKEN_LPAREN):
+                right = self._factor()
+                node = ['*', node, right]
+                continue
+
+            break
         return node
 
     def _factor(self):  # Handles exponentiation (^)
